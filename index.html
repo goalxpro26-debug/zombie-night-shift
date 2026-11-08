@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Zombie Night Shift — Survive 12 Nights</title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#070a14;font-family:Arial,Helvetica,sans-serif;color:#eee}
+#wrap{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+canvas{display:block;max-width:100%;max-height:100%;touch-action:none;background:#0a0e1a}
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:safe center;text-align:center;background:rgba(4,6,16,.82);z-index:5;padding:12px;box-sizing:border-box;overflow-y:auto}
+.hidden{display:none!important}
+h1{font-size:42px;margin:6px;color:#8aff6a;text-shadow:0 0 18px #3a0,2px 2px 0 #000;letter-spacing:2px}
+h2{color:#ffd75e;margin:4px}
+.sub{color:#bcd;max-width:560px;line-height:1.5}
+button{cursor:pointer;background:#2e7d32;color:#fff;border:2px solid #8aff6a;border-radius:10px;padding:12px 26px;font-size:18px;margin:6px}
+button:hover{background:#388e3c} button:disabled{opacity:.4;cursor:not-allowed}
+button.small{font-size:14px;padding:8px 14px}
+button.danger{background:#7d2020;border-color:#ff6a6a}
+.controls{font-size:14px;color:#cde;background:rgba(255,255,255,.06);border:1px solid #335;padding:10px 14px;border-radius:8px;line-height:1.7;max-width:560px}
+.levelgrid{display:flex;flex-wrap:wrap;justify-content:center;max-width:640px}
+.levelgrid button{width:120px;font-size:14px;padding:10px 6px}
+.levelgrid button .stars{color:#ffd75e}
+#loadbar{width:280px;height:18px;border:2px solid #8aff6a;border-radius:9px;overflow:hidden}
+#loadfill{height:100%;width:0%;background:#8aff6a}
+#hud{position:absolute;top:8px;left:8px;right:125px;display:flex;justify-content:space-between;z-index:4;pointer-events:none;font-size:14px;text-shadow:1px 1px 2px #000}
+#hud span{background:rgba(0,0,0,.45);padding:4px 8px;border-radius:6px;margin-right:4px}
+#muteBtn{position:absolute;top:8px;right:8px;z-index:6;pointer-events:auto}
+#touchUI{position:absolute;inset:0;z-index:4;pointer-events:none;display:none}
+#stick{position:absolute;left:24px;bottom:24px;width:110px;height:110px;border:2px solid rgba(255,255,255,.4);border-radius:50%;pointer-events:auto}
+#stickKnob{position:absolute;left:35px;top:35px;width:40px;height:40px;background:rgba(255,255,255,.5);border-radius:50%}
+#fireBtn{position:absolute;right:28px;bottom:40px;width:84px;height:84px;border-radius:50%;background:rgba(200,40,40,.6);border:2px solid #fff;color:#fff;font-size:16px;pointer-events:auto}
+#shopItems{display:flex;flex-wrap:wrap;justify-content:center;max-width:640px}
+.shopcard{background:rgba(255,255,255,.07);border:1px solid #456;border-radius:8px;padding:10px;margin:6px;width:180px;font-size:14px;line-height:1.5}
+</style>
+<script>
+/* GameMonetize SDK — SDK_OPTIONS MUST precede the SDK loader.
+   gameId is a PLACEHOLDER: replace "[YOUR GM GAME ID HERE]" with the real
+   32-char gameId from the GM control panel before final upload.
+   Events are buffered in __gmEventQueue until the game installs the live
+   handler (SDK loads async). showBanner() is called ONLY from the PLAY
+   button click handler — never on load. */
+window.SDK_OPTIONS = {
+  gameId: "[YOUR GM GAME ID HERE]",
+  onEvent: function (event) {
+    var h = window.__gmEventHandler;
+    if (typeof h === "function") h(event);
+    else (window.__gmEventQueue = window.__gmEventQueue || []).push(event);
+  }
+};
+</script>
+<script>
+(function (a, b, c) {
+  var d = a.getElementsByTagName(b)[0];
+  a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://api.gamemonetize.com/sdk.js", d.parentNode.insertBefore(a, d))
+})(document, "script", "gamemonetize-sdk");
+</script>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="640"></canvas>
+  <div id="hud" class="hidden"><div><span id="hudNight">Night 1</span><span id="hudHearts">♥♥♥</span><span id="hudHp">HP 100</span><span id="hudAmmo">Ammo 12/12</span></div><div><span id="hudScore">Score 0</span><span id="hudCoins">🪙 0</span><span id="hudLeft">Zombies left: 0</span></div></div>
+  <button id="muteBtn" class="small">🔊 Sound: ON</button>
+  <div id="touchUI"><div id="stick"><div id="stickKnob"></div></div><button id="fireBtn">FIRE</button></div>
+
+  <div id="menu" class="overlay">
+    <h1>🧟 ZOMBIE NIGHT SHIFT</h1>
+    <p class="sub">You are the night guard. Survive <b>12 nights</b> in the graveyard street — walkers, runners, spitters and brutes, with a boss on Nights 4, 8 and 12. Earn coins, buy weapon upgrades and barricades between nights. Progress saves in your browser.</p>
+    <button id="playBtn" style="font-size:22px;padding:14px 44px">▶ PLAY</button>
+    <div class="controls"><b>How to Play</b><br>
+    🖱️ Move: <b>WASD / Arrow keys</b> &nbsp;•&nbsp; Aim: <b>Mouse</b> &nbsp;•&nbsp; Shoot: <b>Click / Space</b> &nbsp;•&nbsp; Reload: <b>R</b> &nbsp;•&nbsp; Pause: <b>P / Esc</b> &nbsp;•&nbsp; Mute: <b>M</b><br>
+    📱 Touch: left joystick to move, FIRE button to shoot (aims at nearest zombie).<br>
+    Kill zombies to earn coins. Spitters shoot green goo — dodge it! Barricades block zombies. Lose all 3 hearts and the night is over.</div>
+    <div style="margin-top:10px"><b>Select Night</b> <span style="color:#999">(unlocked nights only — progress is saved)</span></div>
+    <div id="levelGrid" class="levelgrid"></div>
+    <p style="color:#888;font-size:12px">Original game — all art drawn for this game. No ads on load; one banner may show after you press PLAY.</p>
+  </div>
+
+  <div id="loading" class="overlay hidden">
+    <h2>Loading Night…</h2><div id="loadbar"><div id="loadfill"></div></div>
+    <p id="loadText">Shovelling graves… 0%</p>
+  </div>
+
+  <div id="shop" class="overlay hidden">
+    <h2 id="shopTitle">Night Complete!</h2><p id="shopSummary"></p>
+    <div id="shopItems"></div>
+    <p>Coins: <b id="shopCoins">0</b> &nbsp;•&nbsp; Barricades standing: <b id="shopBarr">0</b></p>
+    <button id="nextNightBtn">▶ Next Night</button>
+    <button id="shopMenuBtn" class="small">Back to Menu</button>
+  </div>
+
+  <div id="gameover" class="overlay hidden">
+    <h2 style="color:#ff6a6a">💀 YOU DIED</h2><p id="goText"></p>
+    <button id="retryBtn">↻ Retry Night</button><button id="goMenuBtn" class="small">Back to Menu</button>
+  </div>
+
+  <div id="victory" class="overlay hidden">
+    <h2 style="color:#8aff6a">🌅 YOU SURVIVED ALL 12 NIGHTS!</h2><p id="vicText"></p>
+    <button id="vicMenuBtn">Back to Menu</button>
+  </div>
+
+  <div id="paused" class="overlay hidden">
+    <h2>Paused</h2><p>Press P / Esc to resume.</p><button id="resumeBtn">▶ Resume</button>
+  </div>
+</div>
+<script>
+"use strict";
+/* ================= Zombie Night Shift — vanilla JS + Canvas ================= */
+const SAVE_KEY="zombieNightShiftSaveV1";
+const canvas=document.getElementById("game"), ctx=canvas.getContext("2d");
+const W=960,H=640;
+const $=id=>document.getElementById(id);
+
+/* ---------- Levels: 12 nights, rising count/variety, bosses on 4/8/12 ---------- */
+const LEVELS=[
+ {name:"Graveyard Gate", bg:"background_graveyard.png", total:18, interval:1400, types:{walker:1}, hp:1.0, spd:1.0, reward:60},
+ {name:"Foggy Lane", bg:"background.png", total:26, interval:1250, types:{walker:.8,runner:.2}, hp:1.05, spd:1.05, reward:80},
+ {name:"Spitter Alley", bg:"background.png", total:34, interval:1150, types:{walker:.6,runner:.2,spitter:.2}, hp:1.1, spd:1.1, reward:100},
+ {name:"BOSS: Gravekeeper", bg:"background_graveyard.png", total:30, interval:1200, types:{walker:.6,runner:.25,spitter:.15}, boss:true, hp:1.15, spd:1.1, reward:150},
+ {name:"Brute Block", bg:"background.png", total:44, interval:1050, types:{walker:.5,runner:.25,spitter:.15,brute:.1}, hp:1.2, spd:1.15, reward:130},
+ {name:"Dead End Street", bg:"background_graveyard.png", total:54, interval:950, types:{walker:.45,runner:.3,spitter:.15,brute:.1}, hp:1.25, spd:1.2, reward:150},
+ {name:"Moonlit Crossroads", bg:"background.png", total:64, interval:880, types:{walker:.4,runner:.3,spitter:.2,brute:.1}, hp:1.3, spd:1.25, reward:170},
+ {name:"BOSS: Rot King", bg:"background_graveyard.png", total:55, interval:950, types:{walker:.5,runner:.25,spitter:.15,brute:.1}, boss:true, hp:1.4, spd:1.25, reward:220},
+ {name:"Cemetery Hill", bg:"background.png", total:76, interval:820, types:{walker:.35,runner:.3,spitter:.2,brute:.15}, hp:1.45, spd:1.3, reward:200},
+ {name:"The Long Night", bg:"background_graveyard.png", total:88, interval:780, types:{walker:.3,runner:.35,spitter:.2,brute:.15}, hp:1.5, spd:1.35, reward:220},
+ {name:"Horde Rising", bg:"background.png", total:102, interval:720, types:{walker:.3,runner:.35,spitter:.2,brute:.15}, hp:1.55, spd:1.4, reward:250},
+ {name:"BOSS: Nightmare Lord", bg:"background_graveyard.png", total:90, interval:760, types:{walker:.35,runner:.3,spitter:.2,brute:.15}, boss:true, hp:1.65, spd:1.45, reward:400},
+];
+/* Estimated night length (spawn interval x count, plus fighting time):
+   L1 ~2.5 min … L12 ~7 min. Total ≈ 60–70 min across 12 nights. */
+const ENEMY={
+ walker:{hp:30,spd:55,dmg:10,r:20,img:"enemy_walker.png",score:10,coin:2},
+ runner:{hp:22,spd:115,dmg:8,r:18,img:"enemy_runner.png",score:15,coin:3},
+ spitter:{hp:26,spd:48,dmg:6,r:20,img:"enemy_spitter.png",score:20,coin:4,shoots:true},
+ brute:{hp:110,spd:38,dmg:18,r:30,img:"enemy_brute.png",score:30,coin:6},
+ boss:{hp:600,spd:42,dmg:22,r:44,img:"enemy_boss.png",score:200,coin:40,shoots:true},
+};
+/* ---------- Save ---------- */
+function defaultSave(){return {unlocked:1,stars:{},score:0,coins:0,upgrades:{damage:0,fireRate:0,speed:0,maxHp:0},barricades:0,muted:false};}
+let save=defaultSave();
+try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||"null"); if(s&&typeof s.unlocked==="number") save=Object.assign(defaultSave(),s,{upgrades:Object.assign(defaultSave().upgrades,s.upgrades||{})});}catch(e){}
+function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(e){}}
+/* ---------- Assets ---------- */
+const IMGS={};
+const ASSET_LIST=["background.png","background_graveyard.png","player.png","barricade.png","coin.png","heart.png","medkit.png","enemy_walker.png","enemy_runner.png","enemy_spitter.png","enemy_brute.png","enemy_boss.png"];
+for(let i=1;i<=12;i++) ASSET_LIST.push("enemy_l"+String(i).padStart(2,"0")+".png");
+let assetsLoaded=0;
+ASSET_LIST.forEach(n=>{const im=new Image(); im.onload=im.onerror=()=>{assetsLoaded++;}; im.src="assets/"+n; IMGS[n]=im;});
+/* ---------- Audio (synthesized WebAudio, no copyrighted music) ---------- */
+let AC=null, muted=!!save.muted, ambientNodes=null, adPaused=false;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(AC&&AC.state==="suspended") AC.resume(); return AC; }
+function tone(f,dur,type,vol,slide){ if(muted)return; const c=ac(); if(!c)return; const o=c.createOscillator(),g=c.createGain(); o.type=type||"sine"; o.frequency.value=f; if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,slide),c.currentTime+dur); g.gain.setValueAtTime(vol||.15,c.currentTime); g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur); o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime+dur); }
+function noise(dur,vol,freq){ if(muted)return; const c=ac(); if(!c)return; const len=c.sampleRate*dur, buf=c.createBuffer(1,len,c.sampleRate), ch=buf.getChannelData(0); for(let i=0;i<len;i++)ch[i]=(Math.random()*2-1)*(1-i/len); const s=c.createBufferSource(); s.buffer=buf; const f=c.createBiquadFilter(); f.type="lowpass"; f.frequency.value=freq||1200; const g=c.createGain(); g.gain.value=vol||.2; s.connect(f).connect(g).connect(c.destination); s.start(); }
+const SFX={
+ shoot(){noise(.09,.18,2500); tone(180,.08,"square",.06,60);},
+ hit(){tone(120,.08,"sawtooth",.08,70);},
+ zombieDie(){tone(220,.35,"sawtooth",.1,50); noise(.2,.08,500);},
+ moan(){tone(90+Math.random()*60,.9,"sawtooth",.04,60);},
+ hurt(){tone(160,.25,"square",.14,80);},
+ pickup(){tone(660,.1,"sine",.12); setTimeout(()=>tone(880,.12,"sine",.12),90);},
+ coin(){tone(990,.08,"sine",.1);},
+ reload(){tone(300,.07,"square",.08); setTimeout(()=>tone(420,.07,"square",.08),120);},
+ win(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,.25,"sine",.14),i*140));},
+ lose(){[400,350,300,200].forEach((f,i)=>setTimeout(()=>tone(f,.3,"sawtooth",.1),i*180));},
+ boss(){tone(60,1,"sawtooth",.16,40); tone(55,1.2,"square",.08,35);},
+};
+function startAmbient(){ const c=ac(); if(!c||ambientNodes||muted)return; const len=c.sampleRate*2, buf=c.createBuffer(1,len,c.sampleRate), ch=buf.getChannelData(0); let last=0; for(let i=0;i<len;i++){ last=(last+(Math.random()*2-1)*.02)*.98; ch[i]=last*3; } const s=c.createBufferSource(); s.buffer=buf; s.loop=true; const f=c.createBiquadFilter(); f.type="lowpass"; f.frequency.value=400; const g=c.createGain(); g.gain.value=.05; s.connect(f).connect(g).connect(c.destination); s.start(); ambientNodes={s,g}; }
+function setMuted(m){ muted=m; save.muted=m; persist(); $("muteBtn").textContent=m?"🔇 Sound: OFF":"🔊 Sound: ON"; if(ambientNodes) ambientNodes.g.gain.value=m?0:.05; }
+$("muteBtn").onclick=()=>setMuted(!muted); setMuted(muted);
+/* ---------- GameMonetize bridge (vanilla port of templates/babylon/gamemonetize.ts) ---------- */
+const GM={preRollShown:false, adInFlight:false, pausedByGM:false, mutedByGM:false};
+function gmSdk(){ const s=window.sdk; return (s&&typeof s.showBanner==="function")?s:null; }
+function gmShowBanner(){ const live=gmSdk(); if(!live||GM.adInFlight) return false; GM.adInFlight=true; try{ live.showBanner(); setTimeout(()=>{GM.adInFlight=false;},60000); return true; }catch(e){ GM.adInFlight=false; return false; } }
+function gmPause(){ if(state==="playing"){ state="paused"; pausedBy="gm"; GM.pausedByGM=true; if(!muted) setMuted(true), GM.mutedByGM=true; showOverlay("paused"); } else if(!muted){ setMuted(true); GM.mutedByGM=true; } }
+function gmResume(){ GM.adInFlight=false; if(GM.pausedByGM){ GM.pausedByGM=false; if(pausedBy==="gm"){ hideOverlays(); state="playing"; } } if(GM.mutedByGM){ GM.mutedByGM=false; setMuted(!!save.muted?true:false); if(!save.muted) setMuted(false); } }
+function gmHandleEvent(ev){ if(!ev||typeof ev.name!=="string")return; if(ev.name==="SDK_GAME_PAUSE") gmPause(); else if(ev.name==="SDK_GAME_START") gmResume(); /* SDK_READY: live getter re-checks, nothing to store */ }
+try{ (window.__gmEventQueue||[]).forEach(gmHandleEvent); window.__gmEventQueue=[]; window.__gmEventHandler=gmHandleEvent; }catch(e){}
+window.__gamemonetize={ get available(){return !!gmSdk();}, get preRollShown(){return GM.preRollShown;}, get pausedByGM(){return GM.pausedByGM;}, simulatePause:gmPause, simulateResume:gmResume };
+/* ---------- Game state ---------- */
+let state="menu", level=1, pausedBy=null, selectedLevel=1;
+let player, zombies=[], bullets=[], ebullets=[], pickups=[], barricades=[], particles=[];
+let spawnQueue=0, spawnTimer=0, bossSpawned=false, bossRef=null, nightScore=0, nightKills=0, nightStart=0, shake=0;
+let keys={}, mouse={x:W/2,y:120,down:false}, joy={active:false,dx:0,dy:0}, touchFire=false, lastShot=0, reloadUntil=0, ammo=12;
+const MAG=12;
+function upg(name){return save.upgrades[name]||0;}
+function maxHp(){return 100+upg("maxHp")*25;}
+function dmg(){return 12+upg("damage")*6;}
+function fireMs(){return Math.max(120, 260-upg("fireRate")*35);}
+function pSpeed(){return 185+upg("speed")*18;}
+function showOverlay(id){ ["menu","loading","shop","gameover","victory","paused"].forEach(x=>$(x).classList.toggle("hidden",x!==id)); $("hud").classList.toggle("hidden", !(id===null)); }
+function hideOverlays(){ showOverlay(null); }
+function buildLevelGrid(){ const g=$("levelGrid"); g.innerHTML=""; LEVELS.forEach((L,i)=>{ const n=i+1, b=document.createElement("button"); const locked=n>save.unlocked; b.disabled=locked; b.innerHTML=(locked?"🔒 ":"")+"Night "+n+"<br><small>"+L.name+"</small><br><span class='stars'>"+"★".repeat(save.stars[n]||0)+"☆".repeat(3-(save.stars[n]||0))+"</span>"+(L.boss?"<br><small>👹 BOSS</small>":""); b.onclick=()=>{selectedLevel=n; startLoading(n);}; g.appendChild(b); }); }
+function startLoading(n, viaPlay){
+  selectedLevel=n; state="loading"; showOverlay("loading"); $("loadfill").style.width="0%";
+  const t0=performance.now();
+  const iv=setInterval(()=>{ const p=Math.min(1,(performance.now()-t0)/3000); $("loadfill").style.width=(p*100)+"%"; $("loadText").textContent="Loading Night "+n+"… "+Math.round(p*100)+"%"; if(p>=1){ clearInterval(iv); startNight(n); } },100);
+}
+function startNight(n){
+  level=n; const L=LEVELS[n-1];
+  player={x:W/2,y:H/2,r:20,hp:maxHp(),lives:3,angle:-Math.PI/2};
+  zombies=[]; bullets=[]; ebullets=[]; pickups=[]; particles=[]; ammo=MAG; reloadUntil=0;
+  barricades=[]; for(let i=0;i<save.barricades;i++){ const a=[-140,-40,60][i]||0; barricades.push({x:W/2+Math.cos(a*Math.PI/180)*170, y:H/2+Math.sin(a*Math.PI/180)*130, hp:120, max:120}); }
+  spawnQueue=L.total; spawnTimer=500; bossSpawned=false; bossRef=null; nightScore=0; nightKills=0; nightStart=performance.now();
+  state="playing"; hideOverlays(); startAmbient(); if(L.boss) setTimeout(()=>{ if(state==="playing") SFX.boss(); },800);
+  updateHUD();
+}
+function pickType(L){ const r=Math.random(); let acc=0; for(const k in L.types){ acc+=L.types[k]; if(r<=acc) return k; } return "walker"; }
+function spawnZombie(forceType){
+  const L=LEVELS[level-1]; const type=forceType||pickType(L); const base=ENEMY[type];
+  const edge=Math.floor(Math.random()*4); let x,y;
+  if(edge===0){x=Math.random()*W;y=-30;} else if(edge===1){x=W+30;y=Math.random()*H;} else if(edge===2){x=Math.random()*W;y=H+30;} else {x=-30;y=Math.random()*H;}
+  // Per-level distinct model: walkers use that night's own sprite; other types use their type sprite.
+  const img = type==="walker" ? ("enemy_l"+String(level).padStart(2,"0")+".png") : base.img;
+  zombies.push({type,x,y,r:base.r,hp:base.hp*L.hp,maxhp:base.hp*L.hp,spd:base.spd*L.spd*(0.9+Math.random()*.2),dmg:base.dmg,img,score:base.score,coin:base.coin,shoots:!!base.shoots,shootCd:1500+Math.random()*1500,hitCd:0,moanCd:Math.random()*4000});
+}
+function spawnBoss(){ const base=ENEMY.boss, L=LEVELS[level-1]; bossRef={type:"boss",x:W/2,y:-60,r:base.r,hp:base.hp*L.hp,maxhp:base.hp*L.hp,spd:base.spd*L.spd,dmg:base.dmg,img:base.img,score:base.score,coin:base.coin,shoots:true,shootCd:1200,hitCd:0,moanCd:0}; zombies.push(bossRef); bossSpawned=true; SFX.boss(); }
+function shoot(){
+  const now=performance.now(); if(now<reloadUntil||now-lastShot<fireMs()||ammo<=0){ if(ammo<=0&&now>=reloadUntil) startReload(); return; }
+  lastShot=now; ammo--; SFX.shoot();
+  const a=player.angle, bx=player.x+Math.cos(a)*26, by=player.y+Math.sin(a)*26;
+  bullets.push({x:bx,y:by,vx:Math.cos(a)*620,vy:Math.sin(a)*620,life:900,pierce:upg("damage")>=3?1:0});
+  if(ammo===0) startReload();
+  updateHUD();
+}
+function startReload(){ if(reloadUntil>performance.now())return; reloadUntil=performance.now()+900; SFX.reload(); setTimeout(()=>{ammo=MAG; updateHUD();},900); }
+function dropPickup(x,y){ const r=Math.random(); if(r<.12) pickups.push({x,y,kind:"medkit",t:0}); else if(r<.5) pickups.push({x,y,kind:"coin",t:0}); }
+function damagePlayer(amount){ if(state!=="playing")return; player.hp-=amount; shake=8; SFX.hurt(); if(player.hp<=0){ player.lives--; if(player.lives>0){ player.hp=maxHp(); player.x=W/2; player.y=H/2; zombies.forEach(z=>{z.x+= (z.x<W/2? -80:80);}); } else { gameOver(); } } updateHUD(); }
+function gameOver(){ state="gameover"; SFX.lose(); $("goText").textContent="The horde got you on Night "+level+" ("+LEVELS[level-1].name+"). Score this night: "+nightScore+". Your coins and upgrades are kept — try again!"; showOverlay("gameover"); persist(); }
+function nightComplete(){
+  state="shop"; const L=LEVELS[level-1]; const timeMin=((performance.now()-nightStart)/60000).toFixed(1);
+  const stars = player.lives===3?3:(player.lives===2?2:1);
+  save.stars[level]=Math.max(save.stars[level]||0,stars);
+  save.unlocked=Math.max(save.unlocked, Math.min(12, level+1));
+  save.coins+=L.reward; save.score+=nightScore; persist(); SFX.win();
+  $("shopTitle").textContent="🌅 Night "+level+" Complete — "+L.name;
+  $("shopSummary").textContent="Kills: "+nightKills+" • Score: "+nightScore+" • Time: "+timeMin+" min • Stars: "+"★".repeat(stars)+" • Reward: +"+L.reward+" coins";
+  $("shopCoins").textContent=save.coins; $("shopBarr").textContent=save.barricades;
+  buildShop(); showOverlay("shop");
+  if(level===12){ /* victory after shop dismiss */ $("nextNightBtn").textContent="🏆 See Victory"; }
+  else $("nextNightBtn").textContent="▶ Next Night";
+}
+const SHOP=[
+ {id:"damage", name:"🔫 Damage +6", desc:"Each shot hits harder.", cost:c=>80+ c*60},
+ {id:"fireRate", name:"⚡ Fire Rate", desc:"Shoot faster.", cost:c=>70+ c*50},
+ {id:"speed", name:"👟 Move Speed", desc:"Run faster from the horde.", cost:c=>60+ c*40},
+ {id:"maxHp", name:"❤️ Max HP +25", desc:"More health per life.", cost:c=>70+ c*50},
+];
+function buildShop(){
+  const el=$("shopItems"); el.innerHTML="";
+  SHOP.forEach(s=>{ const owned=upg(s.id), cost=s.cost(owned), d=document.createElement("div"); d.className="shopcard"; d.innerHTML="<b>"+s.name+"</b> (Lv "+owned+")<br>"+s.desc+"<br>Cost: "+cost+" coins"; const b=document.createElement("button"); b.className="small"; b.textContent=owned>=5?"MAXED":("Buy — "+cost+" 🪙"); b.disabled=owned>=5||save.coins<cost; b.onclick=()=>{ save.coins-=cost; save.upgrades[s.id]=owned+1; persist(); SFX.pickup(); buildShop(); $("shopCoins").textContent=save.coins; }; d.appendChild(document.createElement("br")); d.appendChild(b); el.appendChild(d); });
+  const barr=document.createElement("div"); barr.className="shopcard"; barr.innerHTML="<b>🧱 Barricade</b> ("+save.barricades+"/3)<br>Wooden barrier that blocks zombies. Zombies attack it first.<br>Cost: 50 coins"; const bb=document.createElement("button"); bb.className="small"; bb.textContent=save.barricades>=3?"MAXED":"Buy — 50 🪙"; bb.disabled=save.barricades>=3||save.coins<50; bb.onclick=()=>{ save.coins-=50; save.barricades++; persist(); SFX.pickup(); buildShop(); $("shopCoins").textContent=save.coins; $("shopBarr").textContent=save.barricades; }; barr.appendChild(document.createElement("br")); barr.appendChild(bb); el.appendChild(barr);
+  const heal=document.createElement("div"); heal.className="shopcard"; heal.innerHTML="<b>💊 Full Heal</b><br>Restore all lives for the next night.<br>Cost: 40 coins"; const hb=document.createElement("button"); hb.className="small"; hb.textContent="Buy — 40 🪙"; hb.disabled=save.coins<40; hb.onclick=()=>{ save.coins-=40; persist(); SFX.pickup(); buildShop(); $("shopCoins").textContent=save.coins; }; heal.appendChild(document.createElement("br")); heal.appendChild(hb); el.appendChild(heal);
+}
+function updateHUD(){
+  $("hudNight").textContent="Night "+level+" — "+LEVELS[level-1].name;
+  $("hudHearts").textContent="♥".repeat(Math.max(0,player?player.lives:3))+"♡".repeat(3-Math.max(0,player?player.lives:3));
+  $("hudHp").textContent="HP "+Math.max(0,Math.ceil(player?player.hp:0));
+  $("hudAmmo").textContent=performance.now()<reloadUntil?"Reloading…":"Ammo "+ammo+"/"+MAG;
+  $("hudScore").textContent="Score "+(save.score+nightScore);
+  $("hudCoins").textContent="🪙 "+save.coins;
+  $("hudLeft").textContent="Left: "+(zombies.length+spawnQueue+(LEVELS[level-1].boss&&!bossSpawned?1:0));
+}
+/* ---------- Input ---------- */
+addEventListener("keydown",e=>{ keys[e.key.toLowerCase()]=true; if(e.key===" "){e.preventDefault(); if(state==="playing") shoot();} if(e.key.toLowerCase()==="r"&&state==="playing") startReload(); if(e.key.toLowerCase()==="m") setMuted(!muted); if((e.key.toLowerCase()==="p"||e.key==="Escape")&&state==="playing"){state="paused";pausedBy="user";showOverlay("paused");} else if((e.key.toLowerCase()==="p"||e.key==="Escape")&&state==="paused"&&pausedBy==="user"){hideOverlays();state="playing";} });
+addEventListener("keyup",e=>{ keys[e.key.toLowerCase()]=false; });
+canvas.addEventListener("mousemove",e=>{ const r=canvas.getBoundingClientRect(); mouse.x=(e.clientX-r.left)*W/r.width; mouse.y=(e.clientY-r.top)*H/r.height; });
+canvas.addEventListener("mousedown",e=>{ if(state!=="playing")return; mouse.down=true; shoot(); });
+addEventListener("mouseup",()=>{mouse.down=false;});
+/* Touch: joystick left, fire right */
+const stick=$("stick"), knob=$("stickKnob");
+function stickMove(t){ const r=stick.getBoundingClientRect(); let dx=t.clientX-(r.left+r.width/2), dy=t.clientY-(r.top+r.height/2); const len=Math.hypot(dx,dy), max=40; if(len>max){dx*=max/len;dy*=max/len;} knob.style.left=(35+dx)+"px"; knob.style.top=(35+dy)+"px"; joy.dx=dx/max; joy.dy=dy/max; }
+stick.addEventListener("touchstart",e=>{e.preventDefault(); joy.active=true; stickMove(e.touches[0]);},{passive:false});
+stick.addEventListener("touchmove",e=>{e.preventDefault(); stickMove(e.touches[0]);},{passive:false});
+stick.addEventListener("touchend",()=>{joy.active=false; joy.dx=joy.dy=0; knob.style.left="35px"; knob.style.top="35px";});
+$("fireBtn").addEventListener("touchstart",e=>{e.preventDefault(); touchFire=true;},{passive:false});
+$("fireBtn").addEventListener("touchend",()=>{touchFire=false;});
+if("ontouchstart" in window) $("touchUI").style.display="block";
+/* ---------- Buttons ---------- */
+$("playBtn").onclick=()=>{ ac(); startAmbient(); if(!GM.preRollShown){ GM.preRollShown=true; gmShowBanner(); } /* PLAY = the only ad call */ startLoading(selectedLevel>save.unlocked?1:selectedLevel); };
+$("nextNightBtn").onclick=()=>{ if(level===12){ state="victory"; $("vicText").textContent="Final score: "+save.score+" • Coins: "+save.coins+". All 12 nights survived — the town is safe… for now."; showOverlay("victory"); } else { selectedLevel=level+1; startLoading(level+1); } };
+$("shopMenuBtn").onclick=()=>{ state="menu"; buildLevelGrid(); showOverlay("menu"); };
+$("retryBtn").onclick=()=>startLoading(level);
+$("goMenuBtn").onclick=()=>{ state="menu"; buildLevelGrid(); showOverlay("menu"); };
+$("vicMenuBtn").onclick=()=>{ state="menu"; buildLevelGrid(); showOverlay("menu"); };
+$("resumeBtn").onclick=()=>{ hideOverlays(); state="playing"; };
+/* ---------- Update / render ---------- */
+let last=performance.now();
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+function update(dt){
+  if(state!=="playing") return;
+  // movement
+  let mx=0,my=0;
+  if(keys["w"]||keys["arrowup"])my-=1; if(keys["s"]||keys["arrowdown"])my+=1;
+  if(keys["a"]||keys["arrowleft"])mx-=1; if(keys["d"]||keys["arrowright"])mx+=1;
+  if(joy.active){mx=joy.dx; my=joy.dy;}
+  const ml=Math.hypot(mx,my); if(ml>1){mx/=ml;my/=ml;}
+  player.x=Math.max(20,Math.min(W-20,player.x+mx*pSpeed()*dt));
+  player.y=Math.max(20,Math.min(H-20,player.y+my*pSpeed()*dt));
+  // aim
+  if(touchFire||joy.active){ let best=null,bd=1e9; zombies.forEach(z=>{const d=dist(player,z); if(d<bd){bd=d;best=z;}}); if(best) player.angle=Math.atan2(best.y-player.y,best.x-player.x); if(touchFire) shoot(); }
+  else player.angle=Math.atan2(mouse.y-player.y,mouse.x-player.x);
+  if(mouse.down) shoot();
+  // spawning
+  if(spawnQueue>0){ spawnTimer-=dt*1000; if(spawnTimer<=0&&zombies.length<28){ spawnZombie(); spawnQueue--; spawnTimer=LEVELS[level-1].interval*(0.8+Math.random()*.4); if(Math.random()<.3)SFX.moan(); } }
+  else if(LEVELS[level-1].boss&&!bossSpawned&&zombies.length<=6){ spawnBoss(); }
+  // zombies
+  zombies.forEach(z=>{
+    z.moanCd-=dt*1000; if(z.moanCd<=0){ if(Math.random()<.4)SFX.moan(); z.moanCd=3000+Math.random()*5000; }
+    // barricade blocking: if a barricade is between zombie and player and close, attack it
+    let target=player, tx=player.x, ty=player.y;
+    barricades.forEach(b=>{ if(b.hp>0 && dist(z,b)<z.r+42 && dist(b,player)<dist(z,player)) { target=b; tx=b.x; ty=b.y; } });
+    const a=Math.atan2(ty-z.y,tx-z.x), d=dist(z,{x:tx,y:ty});
+    if(d>z.r+(target===player?player.r:30)){ z.x+=Math.cos(a)*z.spd*dt; z.y+=Math.sin(a)*z.spd*dt; }
+    else { z.hitCd-=dt*1000; if(z.hitCd<=0){ z.hitCd=800; if(target===player) damagePlayer(z.dmg); else { target.hp-=z.dmg; SFX.hit(); if(target.hp<=0){ particles.push({x:target.x,y:target.y,t:0,txt:"Barricade destroyed!"}); } } } }
+    if(z.shoots){ z.shootCd-=dt*1000; if(z.shootCd<=0&&d<420){ z.shootCd=2200+Math.random()*800; ebullets.push({x:z.x,y:z.y,vx:Math.cos(a)*170,vy:Math.sin(a)*170,life:3000}); tone(300,.15,"sine",.07,120); } }
+  });
+  barricades=barricades.filter(b=>b.hp>0);
+  // bullets
+  bullets.forEach(b=>{ b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt*1000; });
+  bullets=bullets.filter(b=>b.life>0&&b.x>0&&b.x<W&&b.y>0&&b.y<H);
+  bullets.forEach(b=>{
+    for(let i=zombies.length-1;i>=0;i--){ const z=zombies[i]; if(dist(b,z)<z.r+6){ z.hp-=dmg(); SFX.hit(); particles.push({x:b.x,y:b.y,t:0,txt:""}); if(z.hp<=0){ nightScore+=z.score; nightKills++; save.coins+=z.coin; SFX.zombieDie(); dropPickup(z.x,z.y); if(z===bossRef) bossRef=null; zombies.splice(i,1); } if(b.pierce>0){b.pierce--;} else {b.life=0;} break; } }
+  });
+  // enemy bullets
+  ebullets.forEach(b=>{ b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt*1000; if(dist(b,player)<player.r+6){ damagePlayer(8); b.life=0; } });
+  ebullets=ebullets.filter(b=>b.life>0&&b.x>0&&b.x<W&&b.y>0&&b.y<H);
+  // pickups
+  pickups.forEach(p=>{ p.t+=dt; if(dist(p,player)<30){ if(p.kind==="coin"){save.coins+=5; SFX.coin();} else {player.hp=Math.min(maxHp(),player.hp+40); SFX.pickup();} p.t=999; } });
+  pickups=pickups.filter(p=>p.t<8);
+  particles=particles.filter(p=>(p.t+=dt)<1);
+  if(spawnQueue===0&&zombies.length===0&&(!LEVELS[level-1].boss||bossSpawned)) nightComplete();
+  updateHUD();
+}
+function draw(){
+  ctx.save(); if(shake>0){ ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake); shake*=.85; if(shake<.5)shake=0; }
+  const L=LEVELS[level-1]||LEVELS[0];
+  const bg=IMGS[L.bg]; if(bg&&bg.complete&&bg.naturalWidth) ctx.drawImage(bg,0,0,W,H); else { ctx.fillStyle="#0a0e1a"; ctx.fillRect(0,0,W,H); }
+  if(state==="menu"||state==="loading"){ ctx.restore(); return; }
+  // barricades
+  barricades.forEach(b=>{ ctx.drawImage(IMGS["barricade.png"],b.x-48,b.y-28,96,56); ctx.fillStyle="#000"; ctx.fillRect(b.x-30,b.y-38,60,6); ctx.fillStyle="#8aff6a"; ctx.fillRect(b.x-30,b.y-38,60*b.hp/b.max,6); });
+  // pickups
+  pickups.forEach(p=>{ const im=IMGS[p.kind==="coin"?"coin.png":"medkit.png"]; ctx.drawImage(im,p.x-16,p.y-16,32,32); });
+  // zombies (rotated toward player)
+  zombies.forEach(z=>{ const a=Math.atan2(player.y-z.y,player.x-z.x); ctx.save(); ctx.translate(z.x,z.y); ctx.rotate(a+Math.PI/2); const s=z.r*2.4; ctx.drawImage(IMGS[z.img]||IMGS["enemy_walker.png"],-s/2,-s/2,s,s); ctx.restore(); ctx.fillStyle="#000"; ctx.fillRect(z.x-20,z.y-z.r-10,40,5); ctx.fillStyle=z.type==="boss"?"#ff2222":"#7CFC00"; ctx.fillRect(z.x-20,z.y-z.r-10,40*Math.max(0,z.hp/z.maxhp),5); });
+  // enemy bullets
+  ebullets.forEach(b=>{ ctx.fillStyle="#7CFC00"; ctx.beginPath(); ctx.arc(b.x,b.y,7,0,7); ctx.fill(); ctx.fillStyle="#c0ff80"; ctx.beginPath(); ctx.arc(b.x,b.y,3,0,7); ctx.fill(); });
+  // bullets
+  ctx.fillStyle="#ffe14d"; bullets.forEach(b=>{ ctx.beginPath(); ctx.arc(b.x,b.y,4,0,7); ctx.fill(); });
+  // player
+  ctx.save(); ctx.translate(player.x,player.y); ctx.rotate(player.angle+Math.PI/2); ctx.drawImage(IMGS["player.png"],-28,-28,56,56); ctx.restore();
+  // boss bar
+  if(bossRef){ ctx.fillStyle="#000"; ctx.fillRect(W/2-200,18,400,14); ctx.fillStyle="#ff2222"; ctx.fillRect(W/2-200,18,400*Math.max(0,bossRef.hp/bossRef.maxhp),14); ctx.fillStyle="#fff"; ctx.font="13px Arial"; ctx.textAlign="center"; ctx.fillText("👹 BOSS",W/2,14); }
+  // wave banner / particles
+  ctx.font="14px Arial"; ctx.textAlign="center"; ctx.fillStyle="#fff";
+  particles.forEach(p=>{ ctx.globalAlpha=1-p.t; ctx.fillText(p.txt,p.x,p.y-20); ctx.globalAlpha=1; });
+  if(state==="playing"&&spawnQueue>0){ ctx.fillStyle="rgba(0,0,0,.4)"; ctx.fillRect(W/2-140,H-28,280,20); ctx.fillStyle="#ffd75e"; ctx.fillText("Zombies incoming: "+spawnQueue+" left to spawn",W/2,H-14); }
+  ctx.restore();
+}
+function loop(t){ const dt=Math.min(.05,(t-last)/1000); last=t; try{ update(dt); }catch(e){ console.error(e); } draw(); requestAnimationFrame(loop); }
+/* ---------- Boot ---------- */
+buildLevelGrid(); showOverlay("menu"); updateHUD();
+window.__zombie={
+ get state(){return state;}, get level(){return level;}, get lives(){return player?player.lives:3;},
+ get zombiesLeft(){return zombies.length+spawnQueue;}, get score(){return save.score+nightScore;},
+ get coins(){return save.coins;}, get unlocked(){return save.unlocked;}, get stars(){return save.stars;},
+ get save(){return save;}, get zombies(){return zombies.map(z=>({type:z.type,hp:z.hp,img:z.img,x:z.x,y:z.y}));},
+ get player(){return player?{x:player.x,y:player.y,hp:player.hp,lives:player.lives,ammo}:null;},
+ get kills(){return nightKills;}, get canvasRect(){const r=canvas.getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height};},
+ startLevel(n){ startLoading(n); }, startNightDirect(n){ startNight(n); },
+ debugKillAll(){ zombies.forEach(z=>{nightScore+=z.score;nightKills++;}); zombies=[]; spawnQueue=0; bossSpawned=true; },
+ debugSpawn(type){ spawnZombie(type); }, debugSetCoins(n){ save.coins=n; persist(); if(state==="shop") buildShop(); },
+ debugUnlockAll(){ save.unlocked=12; persist(); buildLevelGrid(); },
+};
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "errors": [
+    "CONSOLE: Failed to load resource: net::ERR_TUNNEL_CONNECTION_FAILED",
+    "CONSOLE: Failed to load resource: net::ERR_TUNNEL_CONNECTION_FAILED"
+  ],
+  "finishedAt": "2026-11-06T12:41:10.227Z"
+}
